@@ -34,7 +34,7 @@ app.add_middleware(
 # ==========================================
 llm = ChatGroq(
     groq_api_key=os.environ.get("API_KEY_GROQ"),
-    model_name="meta-llama/llama-prompt-guard-2-86m", # aqui se puede poner el que sea 
+    model_name="llama-3.1-8b-instant", 
     max_tokens=500 # para que no de errores a la hora de preguntar 
 )
 
