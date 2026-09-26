@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full antialiased">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asistente AI — Dark Mode</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            tailwindDark: '#0b1120',
+            tailwindCard: '#0f172a',
+            tailwindBorder: 'rgba(255, 255, 255, 0.08)',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="flex h-full flex-col bg-tailwindDark text-slate-200 selection:bg-sky-500 selection:text-white font-sans">
+
+  <!-- Fondo sutil con gradiente y patrón de rejilla oscura de tailwindcss.com -->
+  <div class="fixed inset-0 -z-10 h-full w-full bg-tailwindDark bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_40%,#000_70%,transparent_100%)]"></div>
+
+  <!-- Barra de navegación estilo dark de Tailwind -->
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-tailwindDark/80 backdrop-blur-md">
+    <div class="mx-auto flex h-14 max-w-4xl items-center justify-between px-4 sm:px-6">
+      
+      <!-- Título con status dot sin logos -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-2 w-2">
+            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+          </span>
+          <h1 class="text-sm font-semibold tracking-tight text-white">Agente Conversacional</h1>
+        </div>
+        <span class="rounded-full bg-slate-800/80 px-2 py-0.5 text-[11px] font-mono text-sky-400 ring-1 ring-inset ring-sky-500/20">v1.0</span>
+      </div>
+
+      <!-- Botón Nuevo Chat con estética dark de tecla/badge -->
+      <button 
+        id="new-chat-btn" 
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700/60 bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-slate-300 shadow-sm transition hover:bg-slate-700/70 hover:text-white hover:border-slate-600 active:scale-95 focus:outline-none focus:ring-2 focus:ring-sky-400/30"
+      >
+        <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Nuevo chat
+      </button>
+
+    </div>
+  </header>
+
+  <!-- Área de conversación -->
+  <main id="chat-container" class="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+    <div id="messages-list" class="mx-auto flex max-w-3xl flex-col gap-5"></div>
+  </main>
+
+  <!-- Barra de entrada estilo consola de código -->
+  <footer class="border-t border-white/10 bg-tailwindDark/90 p-4 backdrop-blur-xl">
+    <div class="mx-auto max-w-3xl">
+      <form id="chat-form" class="relative flex items-center">
+        <input 
+          type="text" 
+          id="user-input" 
+          placeholder="Escribe un mensaje para el agente..." 
+          autocomplete="off" 
+          required 
+          class="w-full rounded-2xl border border-white/10 bg-slate-900/90 py-3.5 pl-4 pr-14 text-sm text-white placeholder:text-slate-500 shadow-inner focus:border-sky-500 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition duration-150"
+        />
+        <button 
+          type="submit" 
+          id="send-btn" 
+          aria-label="Enviar mensaje" 
+          class="absolute right-2 flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500 text-white shadow-md shadow-sky-500/20 transition hover:bg-sky-400 active:scale-90 disabled:opacity-40 disabled:hover:bg-sky-500 cursor-pointer disabled:cursor-not-allowed"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </footer>
+
+  <script>
+    const API_URL = "http://127.0.0.1:8000/chat";
+    const historial = [];
+
+    const chatContainer = document.getElementById("chat-container");
+    const messagesList = document.getElementById("messages-list");
+    const chatForm = document.getElementById("chat-form");
+    const userInput = document.getElementById("user-input");
+    const sendBtn = document.getElementById("send-btn");
+    const newChatBtn = document.getElementById("new-chat-btn");
+
+    function renderBubble(texto, rol) {
+      const isUser = rol === "usuario";
+      const item = document.createElement("div");
+      
+      item.className = `flex gap-3 text-sm transition-all duration-200 ${isUser ? "flex-row-reverse" : "flex-row"}`;
+
+      // Avatar monocromático dark
+      const avatar = document.createElement("div");
+      avatar.className = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1 ${
+        isUser 
+          ? "bg-sky-500 text-white ring-sky-400/30" 
+          : "bg-slate-800 text-slate-300 ring-white/10"
+      }`;
+      avatar.textContent = isUser ? "Tú" : "AI";
+
+      // Burbujas dark con contraste limpio
+      const bubble = document.createElement("div");
+      bubble.className = `max-w-[80%] rounded-2xl px-4 py-2.5 leading-relaxed break-words text-[14px] ${
+        isUser
+          ? "bg-sky-500 text-white font-medium rounded-tr-none shadow-sm shadow-sky-500/20"
+          : "bg-slate-900/90 text-slate-200 border border-white/10 rounded-tl-none shadow-md shadow-black/40"
+      }`;
+      bubble.textContent = texto;
+
+      item.appendChild(avatar);
+      item.appendChild(bubble);
+      messagesList.appendChild(item);
+
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function resetChat() {
+      historial.length = 0;
+      messagesList.innerHTML = "";
+      renderBubble("¡Hola! ¿En qué puedo ayudarte hoy?", "asistente");
+    }
+
+    newChatBtn.addEventListener("click", resetChat);
+
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const mensaje = userInput.value.trim();
+      if (!mensaje) return;
+
+      renderBubble(mensaje, "usuario");
+      userInput.value = "";
+      userInput.disabled = true;
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mensaje, historial })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          renderBubble(data.respuesta, "asistente");
+          historial.push({ rol: "usuario", contenido: mensaje });
+          historial.push({ rol: "asistente", contenido: data.respuesta });
+        } else {
+          renderBubble(`Error ${res.status}: Problema al conectar.`, "asistente");
+        }
+      } catch {
+        renderBubble("Error: No se pudo conectar con el servidor backend.", "asistente");
+      } finally {
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+      }
+    });
+
+    resetChat();
+  </script>
+</body>
+</html>
