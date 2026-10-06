@@ -117,3 +117,31 @@ git commit -m "feat: descripcion breve de lo que hiciste"
 # 4. Subir tu rama a GitHub para revisión
 git push -u origin feature/nombre-de-tu-tarea
 ```
+
+---
+
+## 🐳 Nueva Ejecución con Docker (Entrega 2)
+
+A partir de esta versión, el proyecto está contenerizado. **Ya no es necesario levantar manualmente los servicios con Uvicorn ni lidiar con dependencias locales.**
+
+### 1. Actualizar el repositorio local
+Antes de ejecutar cualquier cosa, asegúrate de traer los últimos cambios del equipo:
+
+```bash
+git checkout main
+git pull origin main
+
+2. Configurar variables de entorno
+Verifica que tengas tu archivo .env en la raíz (o en Backend/) con tus credenciales configuradas a partir del archivo .env.example:
+
+GROQ_API_KEY=tu_api_key_aqui
+
+3. Levantar el proyecto con Docker Desktop
+Asegúrate de que la aplicación Docker Desktop esté abierta y ejecutándose en segundo plano. Luego, corre el siguiente comando en la terminal:
+
+```bash
+
+docker compose up --build
+Nota: La bandera --build compila las imágenes e instala los paquetes necesarios en el contenedor. En las siguientes ejecuciones puedes simplemente usar docker compose up.
+# Presiona CTRL + C en la terminal activa, o ejecuta en otra ventana:
+docker compose down  (para detener el servicio)
