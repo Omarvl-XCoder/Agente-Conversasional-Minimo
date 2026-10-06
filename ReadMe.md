@@ -119,29 +119,40 @@ git push -u origin feature/nombre-de-tu-tarea
 ```
 
 ---
+# 🤖 Agente Conversacional Inteligente - Entrega 2
 
-## 🐳 Nueva Ejecución con Docker (Entrega 2)
+Sistema conversacional desacoplado basado en microservicios: inferencia y orquestación de IA con **FastAPI** y gestión administrativa con **Django / DRF**, ahora empaquetado y orquestado localmente mediante **Docker**.
 
-A partir de esta versión, el proyecto está contenerizado. **Ya no es necesario levantar manualmente los servicios con Uvicorn ni lidiar con dependencias locales.**
+---
 
-### 1. Actualizar el repositorio local
-Antes de ejecutar cualquier cosa, asegúrate de traer los últimos cambios del equipo:
+## 🛠️ Requisitos Previos
+
+Antes de comenzar, asegúrate de tener instalado en tu sistema:
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/) (debe estar abierto y corriendo el servicio en segundo plano).
+* [Git](https://git-scm.com/) para el control de versiones.
+* Tu API Key activa de [Groq](https://console.groq.com/).
+
+
+##  Flujo de Trabajo con Docker (Para contribuir)
+
+## 🚀 Guía de Puesta en Marcha
+
+### Paso 1: Actualizar el repositorio local
+Para trabajar siempre con los últimos cambios integrados del equipo, sincroniza la rama principal:
 
 ```bash
 git checkout main
-git pull origin main
-
-2. Configurar variables de entorno
-Verifica que tengas tu archivo .env en la raíz (o en Backend/) con tus credenciales configuradas a partir del archivo .env.example:
-
-GROQ_API_KEY=tu_api_key_aqui
-
-3. Levantar el proyecto con Docker Desktop
-Asegúrate de que la aplicación Docker Desktop esté abierta y ejecutándose en segundo plano. Luego, corre el siguiente comando en la terminal:
-
-```bash
+#Paso 3: Levantar el proyecto con Docker
+#Con Docker Desktop abierto, ejecuta en tu terminal para compilar la imagen y levantar los contenedores:
 
 docker compose up --build
-Nota: La bandera --build compila las imágenes e instala los paquetes necesarios en el contenedor. En las siguientes ejecuciones puedes simplemente usar docker compose up.
-# Presiona CTRL + C en la terminal activa, o ejecuta en otra ventana:
-docker compose down  (para detener el servicio)
+
+#Nota: La bandera --build compila las imágenes e instala todas las dependencias dentro del contenedor. Para ejecuciones posteriores donde no se instalen librerías nuevas, puedes iniciar simplemente con:
+
+docker compose up
+
+#Para apagar los servicios y liberar los puertos de red:
+docker compose down
+```
+
+---
