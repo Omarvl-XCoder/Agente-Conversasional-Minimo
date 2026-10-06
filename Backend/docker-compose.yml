@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  fastapi_service:
+    build: .
+    container_name: agente_fastapi
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Monta tu carpeta local dentro del contenedor para ver cambios sin reconstruir la imagen
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1

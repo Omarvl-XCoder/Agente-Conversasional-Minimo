@@ -117,3 +117,42 @@ git commit -m "feat: descripcion breve de lo que hiciste"
 # 4. Subir tu rama a GitHub para revisión
 git push -u origin feature/nombre-de-tu-tarea
 ```
+
+---
+# 🤖 Agente Conversacional Inteligente - Entrega 2
+
+Sistema conversacional desacoplado basado en microservicios: inferencia y orquestación de IA con **FastAPI** y gestión administrativa con **Django / DRF**, ahora empaquetado y orquestado localmente mediante **Docker**.
+
+---
+
+## 🛠️ Requisitos Previos
+
+Antes de comenzar, asegúrate de tener instalado en tu sistema:
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/) (debe estar abierto y corriendo el servicio en segundo plano).
+* [Git](https://git-scm.com/) para el control de versiones.
+* Tu API Key activa de [Groq](https://console.groq.com/).
+
+
+##  Flujo de Trabajo con Docker (Para contribuir)
+
+## 🚀 Guía de Puesta en Marcha
+
+### Paso 1: Actualizar el repositorio local
+Para trabajar siempre con los últimos cambios integrados del equipo, sincroniza la rama principal:
+
+```bash
+git checkout main
+#Paso 3: Levantar el proyecto con Docker
+#Con Docker Desktop abierto, ejecuta en tu terminal para compilar la imagen y levantar los contenedores:
+
+docker compose up --build
+
+#Nota: La bandera --build compila las imágenes e instala todas las dependencias dentro del contenedor. Para ejecuciones posteriores donde no se instalen librerías nuevas, puedes iniciar simplemente con:
+
+docker compose up
+
+#Para apagar los servicios y liberar los puertos de red:
+docker compose down
+```
+
+---
