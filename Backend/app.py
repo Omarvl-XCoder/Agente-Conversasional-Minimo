@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+import requests
 
 
 from langchain_groq import ChatGroq
@@ -75,9 +76,11 @@ class MensajeHistorial(BaseModel):
 class PeticionChat(BaseModel):
     mensaje: str
     historial: Optional[List[MensajeHistorial]] = []
+    conversacion_id: Optional[int] = None  # Nuevo campo para agrupar chats
 
 class RespuestaChat(BaseModel):
     respuesta: str
+    conversacion_id: Optional[int] = None  # Para que el frontend sepa el ID
 
 @app.get("/")
 def ruta_raiz():
@@ -102,5 +105,32 @@ async def endpoint_chat(peticion: PeticionChat):
         "entrada": peticion.mensaje
     })
 
-    # c) Devolver la respuesta en formato JSON
-    return RespuestaChat(respuesta=resultado.content)
+    URL_DJANGO = "http://django-service:8001/api"
+    conv_id = peticion.conversacion_id
+
+    try:
+        # 1. Si es el primer mensaje, crear la "carpeta" de la conversación
+        if not conv_id:
+            res_conv = requests.post(f"{URL_DJANGO}/conversaciones/", json={})
+            if res_conv.status_code == 201:
+                conv_id = res_conv.json().get("id")
+
+        # 2. Guardar el globo de texto del usuario
+        if conv_id:
+            requests.post(f"{URL_DJANGO}/mensajes/", json={
+                "conversacion": conv_id,
+                "rol": "usuario",
+                "contenido": peticion.mensaje
+            })
+
+            # 3. Guardar el globo de texto de la IA
+            requests.post(f"{URL_DJANGO}/mensajes/", json={
+                "conversacion": conv_id,
+                "rol": "agente",
+                "contenido": resultado.content
+            })
+    except Exception as e:
+        print(f"Error conectando con el microservicio de gestión: {e}")
+
+    # d) Devolver la respuesta al frontend junto con el ID del chat
+    return RespuestaChat(respuesta=resultado.content, conversacion_id=conv_id)
