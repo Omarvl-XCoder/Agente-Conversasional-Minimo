@@ -11,6 +11,11 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 
+import logging
+from bayes_router import clasificador
+
+logger = logging.getLogger("uvicorn.error")
+
 # Cargar variables de entorno (tu API_KEY_GROQ)
 load_dotenv()
 
@@ -59,12 +64,21 @@ REGLAS DE COMPORTAMIENTO:
 - Si el usuario pregunta sobre algo fuera de tu conocimiento, admítelo.
 - Evita respuestas excesivamente largas salvo que el usuario lo pida.
 - Sé amable pero directo."""),
+    ("system", "{nota_ruta}"),
     MessagesPlaceholder(variable_name="historial"),
     ("human", "{entrada}")
 ])
 
 # El agente conversacional mínimo
 cadena = prompt | llm
+
+# Nota que el modulo bayesiano le pasa al LLM segun la intencion detectada
+NOTAS_RUTA = {
+    "info_fatiga": "La consulta es conceptual sobre fatiga al conducir. Responde de forma educativa y clara.",
+    "alerta_flotilla": "La consulta trata de un caso concreto de un conductor o unidad. Responde con pasos de accion concretos.",
+    "fuera_de_dominio": "La consulta esta fuera del dominio de fatiga en flotillas. Indica brevemente que tu especialidad es la fatiga al volante y ofrece ayuda en ese tema.",
+    "incierto": "La intencion del usuario no es clara. Si hace falta, pide una aclaracion breve antes de responder.",
+}
 
 # ==========================================
 # 3. MODELOS DE DATOS PARA LA API (Pydantic)
@@ -81,6 +95,8 @@ class PeticionChat(BaseModel):
 class RespuestaChat(BaseModel):
     respuesta: str
     conversacion_id: Optional[int] = None  # Para que el frontend sepa el ID
+    intencion: Optional[str] = None
+    confianza: Optional[float] = None
 
 @app.get("/")
 def ruta_raiz():
@@ -99,10 +115,19 @@ async def endpoint_chat(peticion: PeticionChat):
         elif msg.rol == "asistente":
             memoria_langchain.append(AIMessage(content=msg.contenido))
 
+        # a2) Razonamiento probabilistico (Bayes): clasificar la intencion
+    clasif = clasificador.clasificar(peticion.mensaje)
+    logger.info(
+        "[BAYES] mensaje=%r | palabras=%s | probs=%s | decision=%s (confianza=%s)",
+        peticion.mensaje, clasif["palabras_usadas"], clasif["probabilidades"],
+        clasif["intencion"], clasif["confianza"],
+    )
+
     # b) Pasar los datos al agente de LangChain
     resultado = await cadena.ainvoke({
         "historial": memoria_langchain,
-        "entrada": peticion.mensaje
+        "entrada": peticion.mensaje,
+        "nota_ruta": NOTAS_RUTA[clasif["intencion"]],
     })
 
     URL_DJANGO = "http://django-service:8001/api"
@@ -133,4 +158,9 @@ async def endpoint_chat(peticion: PeticionChat):
         print(f"Error conectando con el microservicio de gestión: {e}")
 
     # d) Devolver la respuesta al frontend junto con el ID del chat
-    return RespuestaChat(respuesta=resultado.content, conversacion_id=conv_id)
+    return RespuestaChat(
+        respuesta=resultado.content,
+        conversacion_id=conv_id,
+        intencion=clasif["intencion"],
+        confianza=clasif["confianza"],
+    )
