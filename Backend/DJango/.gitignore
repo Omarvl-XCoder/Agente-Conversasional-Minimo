@@ -9,3 +9,6 @@ __pycache__/
 # Ignorar entorno virtual (por si acaso)
 venv/
 env/
+
+# Ignorar variables de entorno (credenciales)
+.env
