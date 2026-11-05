@@ -21,7 +21,7 @@ class SupabaseRetriever(BaseRetriever):
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun
     ) -> List[Document]:
-        vector = get_embeddings().embed_query(query, task_type="RETRIEVAL_QUERY")
+        vector = get_embeddings().embed_query(query)
         respuesta = get_supabase().rpc(
             "match_conocimiento",
             {"query_embedding": vector, "match_count": self.k},
