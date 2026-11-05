@@ -1,32 +1,42 @@
 import os
+import logging
+import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import requests
-
 
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 
-import logging
+# Módulos del Entregable 2: Reglas (SBR), Probabilidad (Bayes) y Memoria Semántica (RAG)
+from motor_sbr import motor_reglas
 from bayes_router import clasificador
+from rag.retriever import SupabaseRetriever, formatear_contexto
+
+logger = logging.getLogger("uvicorn.error")
+# Conectar con el retriever real de Supabase (SCRUM-27)
+try:
+    
+    retriever_rag = SupabaseRetriever(k=3)
+    RAG_DISPONIBLE = True
+except Exception as e:
+    logger.error(f"Error inicializando SupabaseRetriever: {e}")
+    retriever_rag = None
+    RAG_DISPONIBLE = False
 
 logger = logging.getLogger("uvicorn.error")
 
 # Cargar variables de entorno (tu API_KEY_GROQ)
 load_dotenv()
 
-
-
 # ==========================================
 # 1. CREACIÓN DEL MICROSERVICIO (FastAPI)
 # ==========================================
-app = FastAPI(title="Agente Conversacional ")
+app = FastAPI(title="Agente Conversacional")
 
-# Agregar el middleware de CORS aquí (después de crear app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,7 +51,7 @@ app.add_middleware(
 llm = ChatGroq(
     groq_api_key=os.environ.get("API_KEY_GROQ"),
     model_name="openai/gpt-oss-20b", 
-    max_tokens=500 # para que no de errores a la hora de preguntar 
+    max_tokens=500
 )
 
 prompt = ChatPromptTemplate.from_messages([
@@ -55,29 +65,28 @@ INFORMACIÓN SOBRE TU IDENTIDAD (RESPETA ESTO ESTRICTAMENTE):
 
 SOBRE TU MEMORIA:
 - Recuerdas el contexto de la conversación actual (el historial se te pasa en cada mensaje).
-- NO tienes memoria persistente entre sesiones distintas.
-- Si te preguntan si tienes memoria, explica esta distinción con claridad.
+- Cuentas con memoria semántica (RAG), un Sistema Basado en Reglas (SBR) y un enrutador probabilístico (Bayes).
 
 REGLAS DE COMPORTAMIENTO:
 - Responde de forma clara, útil y concisa.
-- Si no sabes algo, dilo honestamente. NO inventes información.
-- Si el usuario pregunta sobre algo fuera de tu conocimiento, admítelo.
-- Evita respuestas excesivamente largas salvo que el usuario lo pida.
-- Sé amable pero directo."""),
-    ("system", "{nota_ruta}"),
+- Si se te proporciona CONTEXTO RAG o DIRECTIVAS DE REGLAS DE NEGOCIO, úsalos obligatoriamente para fundamentar tu respuesta.
+- Si no sabes algo, dilo honestamente. NO inventes información."""),
+    ("system", "ENRUTAMIENTO BAYESIANO: {nota_ruta}"),
+    ("system", "DIRECTIVAS DEL SISTEMA BASADO EN REGLAS (SBR):\n{reglas_sbr}"),
+    ("system", "CONTEXTO RECUPERADO DE LA BASE VECTORIAL (RAG):\n{contexto_rag}"),
     MessagesPlaceholder(variable_name="historial"),
     ("human", "{entrada}")
 ])
 
-# El agente conversacional mínimo
+# Cadena principal del agente
 cadena = prompt | llm
 
-# Nota que el modulo bayesiano le pasa al LLM segun la intencion detectada
+# Nota que el módulo bayesiano le pasa al LLM según la intención detectada
 NOTAS_RUTA = {
     "info_fatiga": "La consulta es conceptual sobre fatiga al conducir. Responde de forma educativa y clara.",
-    "alerta_flotilla": "La consulta trata de un caso concreto de un conductor o unidad. Responde con pasos de accion concretos.",
-    "fuera_de_dominio": "La consulta esta fuera del dominio de fatiga en flotillas. Indica brevemente que tu especialidad es la fatiga al volante y ofrece ayuda en ese tema.",
-    "incierto": "La intencion del usuario no es clara. Si hace falta, pide una aclaracion breve antes de responder.",
+    "alerta_flotilla": "La consulta trata de un caso concreto de un conductor o unidad. Responde con pasos de acción concretos.",
+    "fuera_de_dominio": "La consulta está fuera del dominio de fatiga en flotillas. Indica brevemente que tu especialidad es la fatiga al volante y ofrece ayuda en ese tema.",
+    "incierto": "La intención del usuario no es clara. Si hace falta, pide una aclaración breve antes de responder.",
 }
 
 # ==========================================
@@ -90,13 +99,14 @@ class MensajeHistorial(BaseModel):
 class PeticionChat(BaseModel):
     mensaje: str
     historial: Optional[List[MensajeHistorial]] = []
-    conversacion_id: Optional[int] = None  # Nuevo campo para agrupar chats
+    conversacion_id: Optional[int] = None
 
 class RespuestaChat(BaseModel):
     respuesta: str
-    conversacion_id: Optional[int] = None  # Para que el frontend sepa el ID
+    conversacion_id: Optional[int] = None
     intencion: Optional[str] = None
     confianza: Optional[float] = None
+    reglas_activadas: Optional[List[str]] = []
 
 @app.get("/")
 def ruta_raiz():
@@ -107,7 +117,7 @@ def ruta_raiz():
 # ==========================================
 @app.post("/chat", response_model=RespuestaChat)
 async def endpoint_chat(peticion: PeticionChat):
-    # a) Convertir el historial que llega por internet al formato de LangChain
+    # a) Convertir el historial al formato de LangChain
     memoria_langchain = []
     for msg in peticion.historial:
         if msg.rol == "usuario":
@@ -115,7 +125,7 @@ async def endpoint_chat(peticion: PeticionChat):
         elif msg.rol == "asistente":
             memoria_langchain.append(AIMessage(content=msg.contenido))
 
-        # a2) Razonamiento probabilistico (Bayes): clasificar la intencion
+    # b) Razonamiento probabilístico (Bayes): clasificar la intención
     clasif = clasificador.clasificar(peticion.mensaje)
     logger.info(
         "[BAYES] mensaje=%r | palabras=%s | probs=%s | decision=%s (confianza=%s)",
@@ -123,24 +133,57 @@ async def endpoint_chat(peticion: PeticionChat):
         clasif["intencion"], clasif["confianza"],
     )
 
-    # b) Pasar los datos al agente de LangChain
+    # c) Sistema Basado en Reglas (SBR): evaluar hechos y disparar reglas determinísticas
+    resultado_sbr = motor_reglas.inferir(peticion.mensaje)
+    texto_reglas = (
+        "\n".join(resultado_sbr["directivas_negocio"])
+        if resultado_sbr["directivas_negocio"]
+        else "Ninguna regla crítica activada para este mensaje."
+    )
+    logger.info(
+        "[SBR] hechos=%s | reglas_activadas=%s",
+        resultado_sbr["hechos"], resultado_sbr["reglas_activadas"]
+    )
+
+    # d) Memoria Semántica (RAG): recuperar fragmentos relevantes desde Supabase
+    # d) Memoria Semántica (RAG): recuperar fragmentos relevantes desde Supabase
+    texto_rag = "Sin contexto documental adicional."
+    if clasif["intencion"] != "fuera_de_dominio" and retriever_rag is not None:
+        try:
+            logger.info("[RAG] Consultando base de datos vectorial en Supabase...")
+            docs = retriever_rag.invoke(peticion.mensaje)
+            if docs:
+                texto_rag = formatear_contexto(docs)
+                logger.info(
+                    "[RAG] %d fragmentos recuperados de Supabase (fuentes=%s)",
+                    len(docs), [d.metadata.get("fuente") for d in docs]
+                )
+            else:
+                logger.info("[RAG] La consulta no arrojó fragmentos coincidentes.")
+        except Exception as e:
+            logger.error(f"[RAG] Error consultando el retriever: {e}")
+    else:
+        logger.info("[RAG] Omitido por clasificador o retriever no inicializado.")
+
+    # e) Pasar todos los componentes integrados al agente de LangChain
     resultado = await cadena.ainvoke({
         "historial": memoria_langchain,
         "entrada": peticion.mensaje,
-        "nota_ruta": NOTAS_RUTA[clasif["intencion"]],
+        "nota_ruta": NOTAS_RUTA.get(clasif["intencion"], NOTAS_RUTA["incierto"]),
+        "reglas_sbr": texto_reglas,
+        "contexto_rag": texto_rag,
     })
 
+    # f) Persistir conversación y mensajes en el microservicio de gestión (Django DRF)
     URL_DJANGO = "http://django-service:8001/api"
     conv_id = peticion.conversacion_id
 
     try:
-        # 1. Si es el primer mensaje, crear la "carpeta" de la conversación
         if not conv_id:
             res_conv = requests.post(f"{URL_DJANGO}/conversaciones/", json={})
             if res_conv.status_code == 201:
                 conv_id = res_conv.json().get("id")
 
-        # 2. Guardar el globo de texto del usuario
         if conv_id:
             requests.post(f"{URL_DJANGO}/mensajes/", json={
                 "conversacion": conv_id,
@@ -148,19 +191,19 @@ async def endpoint_chat(peticion: PeticionChat):
                 "contenido": peticion.mensaje
             })
 
-            # 3. Guardar el globo de texto de la IA
             requests.post(f"{URL_DJANGO}/mensajes/", json={
                 "conversacion": conv_id,
                 "rol": "agente",
                 "contenido": resultado.content
             })
     except Exception as e:
-        print(f"Error conectando con el microservicio de gestión: {e}")
+        logger.error(f"Error conectando con el microservicio de gestión: {e}")
 
-    # d) Devolver la respuesta al frontend junto con el ID del chat
+    # g) Devolver la respuesta al frontend junto con metadatos de razonamiento
     return RespuestaChat(
         respuesta=resultado.content,
         conversacion_id=conv_id,
         intencion=clasif["intencion"],
         confianza=clasif["confianza"],
+        reglas_activadas=resultado_sbr["reglas_activadas"],
     )
