@@ -3,7 +3,7 @@ import requests
 API_URL = "http://127.0.0.1:8000/chat"
 historial = []
 
-print("=== Cliente del Agente Conversacional (Entrega 1) ===")
+print("=== Cliente del Agente Conversacional ===")
 print("Escribe 'salir' para finalizar.\n")
 
 while True:
