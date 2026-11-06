@@ -9,15 +9,10 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-# Importamos tu herramienta creada en logic.py
 from logic import herramienta_analisis_pln
 
-# Cargar variables de entorno
 load_dotenv()
 
-# ==========================================
-# 1. CREACIÓN DEL MICROSERVICIO (FastAPI)
-# ==========================================
 app = FastAPI(title="Agente Conversacional")
 
 app.add_middleware(
@@ -28,30 +23,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==========================================
-# 2. CREACIÓN DEL AGENTE (LangChain)
-# ==========================================
 llm = ChatGroq(
     groq_api_key=os.environ.get("API_KEY_GROQ"),
-    model_name="openai/gpt-oss-20b",  # <--- MODELO ACTUALIZADO
-    max_tokens=500
+    model_name="openai/gpt-oss-20b", 
+    max_tokens=500 
 )
 
-# SCRUM-38: Ajustamos las instrucciones del sistema
 prompt = ChatPromptTemplate.from_messages([
     ("system", "Eres un asistente conversacional útil y empático. Tienes una herramienta para analizar el texto (PLN). Úsala siempre que el usuario proporcione un correo, exprese una queja o pregunte por precios."),
     MessagesPlaceholder(variable_name="historial"),
     ("human", "{entrada}")
 ])
 
-# Vinculamos la herramienta al LLM
 llm_con_herramientas = llm.bind_tools([herramienta_analisis_pln])
-
 cadena = prompt | llm_con_herramientas
 
-# ==========================================
-# 3. MODELOS DE DATOS PARA LA API (Pydantic)
-# ==========================================
 class MensajeHistorial(BaseModel):
     rol: str
     contenido: str
@@ -67,9 +53,6 @@ class RespuestaChat(BaseModel):
 def ruta_raiz():
     return {"estado": "Servidor activo", "mensaje": "Bienvenido al Agente de IA"}
 
-# ==========================================
-# 4. ENDPOINT /chat
-# ==========================================
 @app.post("/chat", response_model=RespuestaChat)
 async def endpoint_chat(peticion: PeticionChat):
     memoria_langchain = []
