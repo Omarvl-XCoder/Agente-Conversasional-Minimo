@@ -3,6 +3,7 @@
 Prueba rapida (desde Backend):  python -m rag.retriever "tu pregunta"
 """
 import sys
+import logging
 from typing import List
 
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
@@ -26,7 +27,9 @@ class SupabaseRetriever(BaseRetriever):
             "match_conocimiento",
             {"query_embedding": vector, "match_count": self.k},
         ).execute()
-        return [
+
+        logger = logging.getLogger("AgenteFlotilla.RAG")
+        docs = [
             Document(
                 page_content=fila["contenido"],
                 metadata={"fuente": fila["fuente"], "similitud": fila["similitud"]},
@@ -34,6 +37,11 @@ class SupabaseRetriever(BaseRetriever):
             for fila in (respuesta.data or [])
             if fila["similitud"] >= self.umbral
         ]
+        for d in docs:
+            logger.info(
+                f"[RAG-MATCH] fuente='{d.metadata['fuente']}' | similitud={d.metadata['similitud']:.4f}"
+            )
+        return docs
 
 
 def formatear_contexto(documentos: List[Document]) -> str:

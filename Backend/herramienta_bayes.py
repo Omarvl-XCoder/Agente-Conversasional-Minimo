@@ -6,9 +6,12 @@ invocar por si mismo. El LLM NO lee el codigo: lee el NOMBRE, la DESCRIPCION
 (docstring) y los PARAMETROS (con su tipo). Por eso el docstring debe explicar
 claramente CUANDO usar la herramienta.
 """
+import logging
 from langchain_core.tools import tool
 
 from bayes_router import clasificador
+
+logger = logging.getLogger("AgenteFlotilla.ToolBayes")
 
 
 @tool
@@ -25,12 +28,19 @@ def clasificar_intencion(mensaje: str) -> dict:
     Args:
         mensaje: texto exacto que escribio el usuario.
     """
+    logger.info(f"[TOOL-BAYES] Invocando herramienta 'clasificar_intencion' | entrada='{mensaje}'")
     resultado = clasificador.clasificar(mensaje)
-    return {
+    
+    salida = {
         "intencion": resultado["intencion"],
         "confianza": resultado["confianza"],
         "probabilidades": resultado["probabilidades"],
     }
+    logger.info(
+        f"[TOOL-BAYES] Resultado | intencion={salida['intencion']} "
+        f"| confianza={salida['confianza']} | probs={salida['probabilidades']}"
+    )
+    return salida
 
 
 # Lista de herramientas que se le entregan al agente (SCRUM-38 la usara).

@@ -1,5 +1,8 @@
-from langchain_core.tools import tool
+import logging
 import re
+from langchain_core.tools import tool
+
+logger = logging.getLogger("AgenteFlotilla.ToolPLN")
 
 def analizar_texto_pln(texto: str) -> str:
     """
@@ -40,5 +43,7 @@ def herramienta_analisis_pln(texto_usuario: str) -> str:
     Útil para analizar el texto del usuario. 
     Úsala cuando el usuario escriba correos, exprese quejas o pregunte por precios.
     """
-    print(f"\n🚨 [DEBUG] ¡La herramienta PLN ha sido llamada con el texto: {texto_usuario}!\n")
-    return analizar_texto_pln(texto_usuario)
+    logger.info(f"[TOOL-PLN] Invocando 'herramienta_analisis_pln' | entrada='{texto_usuario}'")
+    resultado = analizar_texto_pln(texto_usuario)
+    logger.info(f"[TOOL-PLN] Hallazgos PLN: {resultado}")
+    return resultado

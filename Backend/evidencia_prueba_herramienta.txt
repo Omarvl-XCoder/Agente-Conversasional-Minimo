@@ -1,0 +1,10 @@
+Nombre:      clasificar_intencion
+Descripcion: Clasifica la intencion de un mensaje del usuario con Naive Bayes.
+
+    ...
+Parametros:  {'mensaje': {'title': 'Mensaje', 'type': 'string'}}
+------------------------------------------------------------
+¿Qué es la somnolencia al conducir? -> {'intencion': 'info_fatiga', 'confianza': 0.743, 'probabilidades': {'info_fatiga': 0.743, 'alerta_flotilla': 0.11, 'fuera_de_dominio': 0.147}}
+La unidad 5 tiene una alerta de parpadeo -> {'intencion': 'alerta_flotilla', 'confianza': 0.939, 'probabilidades': {'info_fatiga': 0.027, 'alerta_flotilla': 0.939, 'fuera_de_dominio': 0.034}}
+Dame una receta de pizza -> {'intencion': 'incierto', 'confianza': 0.529, 'probabilidades': {'info_fatiga': 0.243, 'alerta_flotilla': 0.229, 'fuera_de_dominio': 0.529}}
+Hola -> {'intencion': 'incierto', 'confianza': 0.333, 'probabilidades': {'info_fatiga': 0.333, 'alerta_flotilla': 0.333, 'fuera_de_dominio': 0.333}}
